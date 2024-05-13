@@ -1,0 +1,103 @@
+version: '3.9'
+services:
+  forecaster_http:
+    container_name: http_backend
+    hostname: forecaster_http
+    profiles: ["docker-network"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: always
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+    command: uvicorn forecaster_http.app:web --reload --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - postgres
+      - migrate_currency_data
+
+  currency_updater:
+    container_name: currency_updater
+    hostname: currency_updater
+    profiles: [ "docker-network" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      MONO_API_URL: ${MONO_API_URL}
+    command: python3 -m forecaster_jobs.currency_updater
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - postgres
+  
+  migrate_currency_data:
+    container_name: migrate_currency_data
+    hostname: migrate_currency_data
+    profiles: [ "docker-network" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      MONO_API_URL: ${MONO_API_URL}
+    entrypoint: ["bash", "-c", "sleep 20 && python3 -m scripts.migrate_currency_data"]
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15.1
+    profiles: ["docker-network"]
+    hostname: postgres
+    user: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - './pg_data/:/var/lib/postgresql/'
+      - './sql/migrations:/docker-entrypoint-initdb.d:ro'
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    hostname: redis
+    profiles: ["docker-network"]
+    ports:
+      - '6379:6379'

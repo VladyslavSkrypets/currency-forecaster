@@ -1,0 +1,16 @@
+pydantic
+pydantic-settings
+fastapi
+httpx
+sqlalchemy
+redis
+asyncpg
+greenlet
+uvicorn
+aiocsv
+aiofiles
+psycopg2-binary
+xgboost
+joblib
+pandas
+scikit-learn
