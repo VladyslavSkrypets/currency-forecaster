@@ -1,0 +1,5 @@
+{
+    "editor.rulers": [ 80 ],
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 200,
+}
