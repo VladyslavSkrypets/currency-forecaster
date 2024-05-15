@@ -3,11 +3,10 @@ import decimal
 import datetime
 
 import httpx
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, BaseModel
 
 from forecaster.config import settings
 from forecaster.utilities.logging import logger
-from forecaster.schemas.currency import CurrencyData
 from forecaster.const import (
     UAH_ISO_4217,
     USD_ISO_4217,
@@ -18,9 +17,10 @@ from forecaster.const import (
 CURRENCY_HTTP_TIMEOUT = 2 * 60  # 2 min
 
 
-class CurrencyData(CurrencyData):
+class MonoCurrencyData(BaseModel):
     sell: decimal.Decimal = Field(validation_alias="rateSell")
     buy: decimal.Decimal = Field(validation_alias="rateBuy")
+    date: datetime.datetime
 
     @field_validator('date', mode='before')
     def convert_date_from_timestamp_to_date(cls, value: int) -> datetime.date:
@@ -47,7 +47,7 @@ class MonoBankService:
             timeout=CURRENCY_HTTP_TIMEOUT,
         )
     
-    async def get_actual_currency(self) -> CurrencyData | None:
+    async def get_actual_currency(self) -> MonoCurrencyData | None:
         try:
             async with self._client as client:
                 response = await client.get(
@@ -73,6 +73,6 @@ class MonoBankService:
             return None
     
         if data:
-            return CurrencyData.model_validate(data[0])
+            return MonoCurrencyData.model_validate(data[0])
         
         return None

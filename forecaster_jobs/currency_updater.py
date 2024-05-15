@@ -1,6 +1,6 @@
 import asyncio
 
-from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert
 
 from forecaster.services import db
 from forecaster.services import redis
@@ -22,16 +22,16 @@ async def update_currency() -> bool:
         if actual_currency:
             break
 
-        await asyncio.sleep(20 * SECOND)
+        await asyncio.sleep(5 * SECOND)
     
     async with db.async_sessionmaker.begin() as db_session:
         try:
             await db_session.execute(
                 insert(Currency).values(
-                    created_at=actual_currency.created_at,
+                    created_at=actual_currency.date,
                     sell=actual_currency.sell,
                     buy=actual_currency.buy,
-                )
+                ).on_conflict_do_nothing()
             )
             await db_session.commit()
             logger.info('[UC][Job] Saved new currency data to database')

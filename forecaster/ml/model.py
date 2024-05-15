@@ -10,14 +10,12 @@ from sklearn.metrics import mean_squared_error
 
 from forecaster.const import MINUTE
 from forecaster.services import db
-from forecaster.utilities.cache import timed_lru_cache
 from forecaster.schemas.currency import CurrencyDataToPredict
 from forecaster.models.ml import TrainedModel
 from forecaster.utilities.retry import retry
 from forecaster.utilities.logging import logger
 from forecaster.ml.sql import (
     sql_get_all_currency_data,
-    sql_get_currency_data_by_period,
 )
 
 
@@ -40,24 +38,8 @@ DEFAULT_TRAINING_PARAMS = {
 
 @retry(exceptions=[Exception], tries=3, delay=1, backoff=0.5)
 def load_currency_data_to_train_model() -> pd.DataFrame:
-    date_to = (
-        datetime.datetime.today() - datetime.timedelta(days=DATE_SHIFT)
-    ).date()
     return pd.read_sql(
-        sql=sql_get_all_currency_data(date_to=date_to),
-        con=db.engine,
-    )
-
-
-def load_predition_data() -> pd.DataFrame:
-    date_from = (
-        datetime.datetime.today() - datetime.timedelta(days=DATE_SHIFT)
-    ).date()
-    return pd.read_sql(
-        sql=sql_get_currency_data_by_period(
-            date_from=date_from,
-            date_to=datetime.datetime.today().date(),
-        ),
+        sql=sql_get_all_currency_data(date_to=datetime.datetime.today().date()),
         con=db.engine,
     )
 
@@ -208,25 +190,31 @@ def train_model(dataframe: pd.DataFrame):
 
 
 def run_model_training() -> None:
-    training_data = load_currency_data_to_train_model()
-    transformed_data = transform_data(training_data)
-    train_model(transformed_data)
+    try:
+        logger.info('[FORECASTER][ML] START MODEL TRAINING')
+        training_data = load_currency_data_to_train_model()
+        logger.info('[FORECASTER][ML] LOADED DATA TO TRAIN MODEL')
+        transformed_data = transform_data(training_data)
+        logger.info('[FORECASTER][ML] TRANSFORMED DATA TO TRAIN MODEL')
+        train_model(transformed_data)
+        logger.info('[FORECASTER][ML] MODEL RETRAINED SUCCESSFULLY')
+    except Exception:
+        logger.exception('[FORECASTER][ML] Failed to retrain model')
 
 
-@timed_lru_cache(seconds=5 * MINUTE)
 async def get_prediction(currency_data: CurrencyDataToPredict) -> float:
     dump_data = currency_data.model_dump(mode="json")
 
     data_to_predict = pd.DataFrame(dump_data, index=[0])
 
     data_to_predict['created_at'] = pd.to_datetime(data_to_predict['created_at'])
-    data_to_predict['buy'] = data_to_predict['value']
-    data_to_predict.drop('value', axis=1, inplace=True)
+    data_to_predict['buy'] = data_to_predict['buy_price']
+    data_to_predict.drop('buy_price', axis=1, inplace=True)
     data_to_predict['buy'] = data_to_predict['buy'].astype(float)
 
     transformed_data = transform_data(data_to_predict)
 
     model = await async_load_model(latest=True)
     prediction = model.predict(transformed_data)
-    
+
     return sum(prediction) / len(prediction)

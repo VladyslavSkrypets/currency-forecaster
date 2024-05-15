@@ -2,7 +2,7 @@ create table if not exists currency (
     id bigserial unique not null,
     sell numeric(16, 2) not null,
     buy numeric(16, 2) not null,
-    created_at timestamp not null
+    created_at timestamp unique not null
 );
 
 create index if not exists currency_id_idx on currency(id);
