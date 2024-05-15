@@ -25,7 +25,56 @@ services:
     depends_on:
       - redis
       - postgres
-      - migrate_currency_data
+  
+  forecaster_bot:
+    container_name: forecaster_bot
+    hostname: forecaster_bot
+    profiles: ["docker-network"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: always
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      TELEGRAM_API_KEY: ${TELEGRAM_API_KEY}
+    command: python -m forecaster_telegram
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - postgres
+
+  bot_forecasts_sender:
+    container_name: bot_forecasts_sender
+    hostname: bot_forecasts_sender
+    profiles: ["docker-network"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      TELEGRAM_API_KEY: ${TELEGRAM_API_KEY}
+    command: python3 -m forecaster_jobs.telegram_forecast_sender
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - postgres
 
   currency_updater:
     container_name: currency_updater
@@ -69,10 +118,35 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       REDIS_DATABASE: ${REDIS_DATABASE}
       MONO_API_URL: ${MONO_API_URL}
-    entrypoint: ["bash", "-c", "sleep 20 && python3 -m scripts.migrate_currency_data"]
+    entrypoint: ["bash", "-c", "python3 -m scripts.migrate_currency_data"]
     volumes:
       - .:/app
     depends_on:
+      - postgres
+
+  model_retrainer:
+    container_name: model_retrainer
+    hostname: model_retrainer
+    profiles: [ "docker-network" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: always
+    environment:
+      DEBUG: True
+      DB_URL: ${DB_URL}
+      ASYNC_DB_URL: ${ASYNC_DB_URL}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DATABASE: ${REDIS_DATABASE}
+      MONO_API_URL: ${MONO_API_URL}
+    command: python3 -m forecaster_jobs.model_retrainer
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
       - postgres
 
   postgres:

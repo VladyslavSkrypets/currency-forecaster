@@ -14,3 +14,7 @@ xgboost
 joblib
 pandas
 scikit-learn
+matplotlib
+aiogram
+apscheduler
+schedule

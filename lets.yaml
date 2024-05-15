@@ -1,0 +1,17 @@
+shell: bash
+
+commands:
+  run:
+    description: Run Currency Forecaster App
+    cmd: |
+      docker-compose up -d redis postgres
+
+      echo "Waiting for redis and postgres to initialize..."
+      sleep 20
+
+      docker-compose up migrate_currency_data
+
+      echo "Waiting for migrate_currency_data to complete..."
+      sleep 3
+
+      docker-compose up forecaster_http forecaster_bot bot_forecasts_sender currency_updater model_retrainer

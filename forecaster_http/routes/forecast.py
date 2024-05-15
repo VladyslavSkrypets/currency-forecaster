@@ -11,15 +11,13 @@ from forecaster.schemas.currency import CurrencyDataToPredict
 router = APIRouter()
 
 
-class BasePredictionData(BaseModel):
-    value: decimal.Decimal
-
-
-class PredictCurrencyRequest(BasePredictionData):
+class PredictCurrencyRequest(BaseModel):
+    buy_price: decimal.Decimal
     current_datetime: datetime.datetime
 
 
-class PredictCurrencyResponse(BasePredictionData):
+class PredictCurrencyResponse(BaseModel):
+    sell_price: decimal.Decimal
     predicted_at: datetime.datetime
 
 
@@ -28,13 +26,13 @@ async def get_actual_currency(
     data: PredictCurrencyRequest
 ) -> PredictCurrencyResponse:
     payload = CurrencyDataToPredict(
-        value=data.value,
+        buy_price=data.buy_price,
         created_at=data.current_datetime,
     ) if data is not None else None
 
     prediction = await get_prediction(currency_data=payload)
 
     return PredictCurrencyResponse(
-        value=round(prediction, 3),
+        sell_price=round(prediction, 3),
         predicted_at=datetime.datetime.now(),
     )

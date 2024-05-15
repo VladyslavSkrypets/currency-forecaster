@@ -14,8 +14,8 @@ class CurrencyData(BaseModel):
     @classmethod
     def from_row(cls, row: dict) -> "CurrencyData":
         return cls(
-            sell=row['Low'],
-            buy=row['High'],
+            sell=row['High'],
+            buy=row['Low'],
             created_at=datetime.datetime.strptime(
                 row['Date'],
                 '%m/%d/%Y',
@@ -24,7 +24,7 @@ class CurrencyData(BaseModel):
 
 
 class CurrencyDataToPredict(BaseModel):
-    value: decimal.Decimal
+    buy_price: decimal.Decimal
     created_at: datetime.datetime
 
     def __hash__(self) -> int:
