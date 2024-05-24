@@ -14,4 +14,5 @@ def sql_get_all_currency_data(date_to: datetime.date) -> str:
             created_at
         from currency
         where created_at::date <= '{date_to}'::date
+        order by created_at asc
     """

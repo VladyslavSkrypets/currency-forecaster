@@ -68,7 +68,10 @@ async def create_user_forecast_subscription(user: User) -> None:
 async def deactivate_user_forecast_subscription(user: User) -> None:
     user_forecast_subscription = await get_forecast_subscription_by_user(user)
 
-    if user_forecast_subscription and not user_forecast_subscription.is_active:
+    if not user_forecast_subscription:
+        raise ActiveForecastSubscriptionNotExist
+    
+    if not user_forecast_subscription.is_active:
         raise ActiveForecastSubscriptionNotExist
 
     async with db.async_sessionmaker.begin() as db_session:
